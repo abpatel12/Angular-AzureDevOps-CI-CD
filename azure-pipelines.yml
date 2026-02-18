@@ -1,0 +1,50 @@
+trigger:
+- main  # Define the branch to trigger the pipeline
+
+pr:  # Define PR triggers if needed
+- '*'
+
+pool:
+  vmImage: 'ubuntu-latest'  # Use a suitable build agent image (e.g., ubuntu-latest)
+
+variables:
+  appName: 'angularwebapp7656'  # Replace with your Azure Web App name
+  buildPath: '$(Build.SourcesDirectory)/dist'  # Path to Angular build files
+
+stages:
+- stage: Build
+  displayName: 'Build and Package'
+  jobs:
+  - job: Build
+    steps:
+    - script: |
+        npm install
+        ng build --prod
+      displayName: 'Build Angular App'
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        pathtoPublish: '$(buildPath)'
+        artifactName: 'drop'
+      displayName: 'Publish Build Artifacts'
+
+- stage: Deploy
+  displayName: 'Deploy to Azure App Service'
+  dependsOn: Build
+  jobs:
+  - job: Deploy
+    steps:
+    - download: current
+      artifact: 'drop'
+      displayName: 'Download Build Artifacts'
+
+    - task: UseDotNet@2
+      inputs:
+        packageType: 'sdk'
+        installationPath: $(Agent.ToolsDirectory)/dotnet
+
+    - task: AzureWebApp@1
+      inputs:
+        azureSubscription: 'AppSConnection'
+        appName: $(appName)
+        package: '$(Pipeline.Workspace)/drop'
